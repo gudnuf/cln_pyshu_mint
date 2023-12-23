@@ -96,6 +96,7 @@
               pysocks
               cryptography
               coincurve
+              flask
             ]))
           ];
           # Automatically run jupyter when entering the shell.
