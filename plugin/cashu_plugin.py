@@ -4,6 +4,7 @@ from typing import Dict
 from coincurve import PublicKey
 from pyln.client import Plugin
 import keys
+import  crypto
 
 plugin = Plugin()
 
@@ -69,5 +70,20 @@ def get_keysets(plugin: Plugin, keyset_id=None):
 @plugin.method("cashu-dev-get-privkeys")
 def get_priv_keys(plugin: Plugin):
     return {key: value.secret.hex() for key, value in plugin.keys.items()}
+
+# BlindedMessage: https://github.com/cashubtc/nuts/blob/main/00.md#blindedmessage
+@plugin.method("cashu-sign")# TODO: add id to specify which keyset to use
+def sign(plugin, amount, B_):
+    try:
+        k = plugin.keys[int(amount)]
+    except:
+        return {"error":"unsupported amount"} # TODO: return a proper error
+    C_ = crypto.blind_sign(B_, k)
+    id = plugin.keysetId
+    return {
+        "amount": amount,
+        "id": id,
+        "C_": C_.format().hex()
+    }
 
 plugin.run()
