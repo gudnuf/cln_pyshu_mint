@@ -23,3 +23,8 @@ def get_keyset(priv_keyset: PrivKeyset):
     id = derive_keyset_id(pub_keyset)
     return pub_keyset, id
 
+# https://github.com/cashubtc/nuts/blob/main/02.md#deriving-the-keyset-id
+def derive_keyset_id(keys: PubKeyset) -> str:
+    sorted_keys = dict(sorted(keys.items()))
+    pubkeys_concat = b"".join([p.format() for p in sorted_keys.values()])
+    return "00" + sha256(pubkeys_concat).hexdigest()[:14]
