@@ -65,4 +65,9 @@ def get_keysets(plugin: Plugin, keyset_id=None):
             ]
         }
 
+
+@plugin.method("cashu-dev-get-privkeys")
+def get_priv_keys(plugin: Plugin):
+    return {key: value.secret.hex() for key, value in plugin.keys.items()}
+
 plugin.run()
