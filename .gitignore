@@ -1,2 +1,6 @@
 .env
 .envrc
+.lightning_nodes/
+.bitcoin/
+.direnv
+plugin/__pycache__
