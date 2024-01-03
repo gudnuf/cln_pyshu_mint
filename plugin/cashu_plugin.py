@@ -71,6 +71,31 @@ def get_keysets(plugin: Plugin, keyset_id=None):
 def get_priv_keys(plugin: Plugin):
     return {key: value.secret.hex() for key, value in plugin.keys.items()}
 
+def mint_quote_response(quote: str, rpc_invoice):
+    return {
+        "quote": quote,
+        "request": rpc_invoice.get("bolt11"),
+        "paid": False if rpc_invoice.get("status") == "unpaid" else True,
+        "expiry": rpc_invoice.get("expires_at")
+    }
+
+@plugin.method("cashu-get-quote")
+def mint_token(plugin: Plugin, amount, unit):
+    quote = crypto.generate_quote()
+    # TODO: check that amount and unit are valid
+    invoice = plugin.rpc.invoice(
+        amount_msat=amount * 1000, 
+        label=f'cashu:{quote}', 
+        description="An invoice"
+    )
+    return mint_quote_response(quote, invoice)
+
+@plugin.method("cashu-check-quote")
+def check_mint_status(plugin: Plugin, quote: str):
+    invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0]
+    return mint_quote_response(quote, invoice)
+
+
 # BlindedMessage: https://github.com/cashubtc/nuts/blob/main/00.md#blindedmessage
 @plugin.method("cashu-sign")# TODO: add id to specify which keyset to use
 def sign(plugin, amount, B_):
