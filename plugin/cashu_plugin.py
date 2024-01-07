@@ -79,6 +79,7 @@ def mint_quote_response(quote: str, rpc_invoice):
         "expiry": rpc_invoice.get("expires_at")
     }
 
+# https://github.com/cashubtc/nuts/blob/main/04.md#mint-quote
 @plugin.method("cashu-get-quote")
 def mint_token(plugin: Plugin, amount, unit):
     quote = crypto.generate_quote()
@@ -90,11 +91,33 @@ def mint_token(plugin: Plugin, amount, unit):
     )
     return mint_quote_response(quote, invoice)
 
+# https://github.com/cashubtc/nuts/blob/main/04.md#check-mint-quote-state
 @plugin.method("cashu-check-quote")
 def check_mint_status(plugin: Plugin, quote: str):
     invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0]
     return mint_quote_response(quote, invoice)
 
+# https://github.com/cashubtc/nuts/blob/main/04.md#minting-tokens
+@plugin.method("cashu-mint")
+def mint_token(plugin: Plugin, quote: str, blinded_messages):
+    invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0] # TODO: handle when invoices[0] DNE
+    if invoice.get("status") == "unpaid":
+        return {"error": "invoice not paid"}
+    requested_amount = sum([int(b["amount"]) for b in blinded_messages])
+    quote_amount = int(invoice.get("amount_msat")) / 1000
+    if requested_amount != quote_amount:
+        return {"error": "invalid amount"}
+    blinded_sigs = []
+    for b in blinded_messages:
+        k = plugin.keys[int(b["amount"])]
+        C_ = crypto.blind_sign(b["B_"], k)
+        blinded_sigs.append({
+            "amount": b["amount"],
+            "id": plugin.keysetId,
+            "C_": C_.format().hex()
+        }) 
+        # TODO: add quoteId to list of quotes for issued tokens 
+    return blinded_sigs
 
 # BlindedMessage: https://github.com/cashubtc/nuts/blob/main/00.md#blindedmessage
 @plugin.method("cashu-sign")# TODO: add id to specify which keyset to use
