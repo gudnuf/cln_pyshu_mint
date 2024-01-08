@@ -10,6 +10,7 @@ plugin = Plugin()
 
 plugin.keys: keys.PrivKeyset
 plugin.keysetId = ""
+plugin.melt_quotes: Dict[str, Dict] = {}
 
 plugin.add_option(name="path",
                   default="/0/0/0/0",
@@ -118,6 +119,42 @@ def mint_token(plugin: Plugin, quote: str, blinded_messages):
         }) 
         # TODO: add quoteId to list of quotes for issued tokens 
     return blinded_sigs
+
+# https://github.com/cashubtc/nuts/blob/main/05.md#melt-quote
+@plugin.method("cashu-melt-quote")
+def get_melt_quote(plugin: Plugin, req: str, unit: str): # QUESTION: why does 'request' not work but 'req' does?
+    """Returns a quote for melting tokens"""
+    amount = plugin.rpc.decodepay(req).get("amount_msat") // 1000
+    response = {
+        "quote": crypto.generate_quote(),
+        "amount": amount,
+        "fee_reserve": 0, # TODO: add fee reserve
+        "paid": False,
+        "expiry": 0 # TODO: add expiry... invoice expiry? 1 minute?
+    }
+    # add request to what we store so we can get the bolt11 later
+    response_with_request = {**response, "request": req}
+    plugin.melt_quotes[response["quote"]] = response_with_request
+    return response
+
+
+@plugin.method("cashu-check-melt-quote")
+def check_melt_quote(plugin: Plugin, quote: str):
+    """Checks the status of a melt quote request"""
+    stored_quote = plugin.melt_quotes.get(quote)
+    if not stored_quote:
+        return {"error": "quote not found"}
+    # if paid, then payment will be in the list of pays otherwise assume not paid
+    try:
+        payment = plugin.rpc.listpays(bolt11=stored_quote["request"]).get("pays")[0]
+        paid = True if payment.get("status") == "complete" else False
+    except:
+        paid = False
+
+    without_request = stored_quote.copy()
+    without_request.pop("request")
+    without_request["paid"] = paid
+    return without_request
 
 # BlindedMessage: https://github.com/cashubtc/nuts/blob/main/00.md#blindedmessage
 @plugin.method("cashu-sign")# TODO: add id to specify which keyset to use
