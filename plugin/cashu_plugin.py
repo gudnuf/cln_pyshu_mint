@@ -156,6 +156,29 @@ def check_melt_quote(plugin: Plugin, quote: str):
     without_request["paid"] = paid
     return without_request
 
+@plugin.method("cashu-melt")
+def melt_token(plugin: Plugin, quote: str, inputs: list):
+    quote = plugin.melt_quotes.get(quote)
+    if not quote:
+        return {"error": "quote not found"}
+    bolt11 = quote["request"]
+    # sum of all input amounts must equal the quote amount
+    requested_amount = sum([int(i["amount"]) for i in inputs])
+    quote_amount = int(quote["amount"])
+    if requested_amount != quote_amount:
+        return {"error": "invalid amount"}
+    for i in inputs:
+        k = plugin.keys[int(i["amount"])]
+        C = i["C"]
+        secret_bytes = i["secret"].encode()
+        if not crypto.verify_token(C, secret_bytes, k):
+            return {"error": "invalid token"}
+    payment = plugin.rpc.pay(bolt11)
+    return {
+        "paid": True if payment.get('status') == 'complete' else False,
+        "preimage": payment.get('payment_preimage')
+    }
+
 # BlindedMessage: https://github.com/cashubtc/nuts/blob/main/00.md#blindedmessage
 @plugin.method("cashu-sign")# TODO: add id to specify which keyset to use
 def sign(plugin, amount, B_):

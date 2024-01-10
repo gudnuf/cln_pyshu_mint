@@ -12,3 +12,16 @@ def blind_sign(B_, k: PrivateKey):
 # TODO: figure a better way to generate the quote
 def generate_quote():
     return sha256(PrivateKey().secret).hexdigest()[0:16]
+
+def hash_to_curve(x_bytes):
+    # Hash the secret using SHA-256
+    hash_value = sha256(x_bytes).digest()
+    # Create a public key Y from the hashed secret
+    Y = PublicKey.from_secret(hash_value)
+    return Y
+
+def verify_token(C, secret_bytes, k: PrivateKey):
+    # k*hash_to_curve(x) == C
+    Y = hash_to_curve(secret_bytes)
+    kY = Y.multiply(k.secret)
+    return kY.format().hex() == C
