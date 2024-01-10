@@ -81,7 +81,7 @@ def mint_quote_response(quote: str, rpc_invoice):
     }
 
 # https://github.com/cashubtc/nuts/blob/main/04.md#mint-quote
-@plugin.method("cashu-get-quote")
+@plugin.method("cashu-quote-mint")
 def mint_token(plugin: Plugin, amount, unit):
     """Returns a quote for minting tokens"""
     quote = crypto.generate_quote()
@@ -94,7 +94,7 @@ def mint_token(plugin: Plugin, amount, unit):
     return mint_quote_response(quote, invoice)
 
 # https://github.com/cashubtc/nuts/blob/main/04.md#check-mint-quote-state
-@plugin.method("cashu-check-quote")
+@plugin.method("cashu-check-mint")
 def check_mint_status(plugin: Plugin, quote: str):
     """Checks the status of a quote request"""
     invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0]
@@ -124,7 +124,7 @@ def mint_token(plugin: Plugin, quote: str, blinded_messages):
     return blinded_sigs
 
 # https://github.com/cashubtc/nuts/blob/main/05.md#melt-quote
-@plugin.method("cashu-melt-quote")
+@plugin.method("cashu-quote-melt")
 def get_melt_quote(plugin: Plugin, req: str, unit: str): # QUESTION: why does 'request' not work but 'req' does?
     """Returns a quote for melting tokens"""
     amount = plugin.rpc.decodepay(req).get("amount_msat") // 1000
@@ -141,7 +141,7 @@ def get_melt_quote(plugin: Plugin, req: str, unit: str): # QUESTION: why does 'r
     return response
 
 
-@plugin.method("cashu-check-melt-quote")
+@plugin.method("cashu-check-melt")
 def check_melt_quote(plugin: Plugin, quote: str):
     """Checks the status of a melt quote request"""
     stored_quote = plugin.melt_quotes.get(quote)
