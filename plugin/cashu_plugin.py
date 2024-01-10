@@ -83,6 +83,7 @@ def mint_quote_response(quote: str, rpc_invoice):
 # https://github.com/cashubtc/nuts/blob/main/04.md#mint-quote
 @plugin.method("cashu-get-quote")
 def mint_token(plugin: Plugin, amount, unit):
+    """Returns a quote for minting tokens"""
     quote = crypto.generate_quote()
     # TODO: check that amount and unit are valid
     invoice = plugin.rpc.invoice(
@@ -95,12 +96,14 @@ def mint_token(plugin: Plugin, amount, unit):
 # https://github.com/cashubtc/nuts/blob/main/04.md#check-mint-quote-state
 @plugin.method("cashu-check-quote")
 def check_mint_status(plugin: Plugin, quote: str):
+    """Checks the status of a quote request"""
     invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0]
     return mint_quote_response(quote, invoice)
 
 # https://github.com/cashubtc/nuts/blob/main/04.md#minting-tokens
 @plugin.method("cashu-mint")
 def mint_token(plugin: Plugin, quote: str, blinded_messages):
+    """Returns blinded signatures for blinded messages once a quote request is paid"""
     invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0] # TODO: handle when invoices[0] DNE
     if invoice.get("status") == "unpaid":
         return {"error": "invoice not paid"}
