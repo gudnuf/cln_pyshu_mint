@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
+#!/home/daim/code/cln_pyshu_mint/venv/bin/python
 
+import json
 from typing import Dict
 from coincurve import PublicKey
 from pyln.client import Plugin
@@ -17,7 +18,7 @@ plugin.add_option(name="path",
                   description="Derivation path for current keyset")
 
 plugin.add_option(name="max_order",
-                  default="64",
+                  default="8",
                   description="Determines values the mint supports")
 
 @plugin.init()
@@ -104,6 +105,7 @@ def check_mint_status(plugin: Plugin, quote: str):
 @plugin.method("cashu-mint")
 def mint_token(plugin: Plugin, quote: str, blinded_messages):
     """Returns blinded signatures for blinded messages once a quote request is paid"""
+    # blinded_messages = json.loads(blinded_messages)
     invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0] # TODO: handle when invoices[0] DNE
     if invoice.get("status") == "unpaid":
         return {"error": "invoice not paid"}
@@ -127,7 +129,10 @@ def mint_token(plugin: Plugin, quote: str, blinded_messages):
 @plugin.method("cashu-quote-melt")
 def get_melt_quote(plugin: Plugin, req: str, unit: str): # QUESTION: why does 'request' not work but 'req' does?
     """Returns a quote for melting tokens"""
-    amount = plugin.rpc.decodepay(req).get("amount_msat") // 1000
+    decoded = plugin.rpc.decodepay(req)
+    amount = decoded.get("amount_msat") // 1000
+    node_id = decoded.get("payee")
+    return plugin.rpc.getroute(node_id=node_id, amount_msat=amount * 1000, riskfactor=1.0)
     response = {
         "quote": crypto.generate_quote(),
         "amount": amount,
