@@ -96,6 +96,18 @@ def check_mint_status(plugin: Plugin, quote: str):
     invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0]
     return mint_quote_response(quote, invoice)
 
+def create_blinded_sigs(plugin, blinded_messages):
+    blinded_sigs = []
+    for b in blinded_messages:
+        k = plugin.keyset.private_keys[int(b["amount"])]
+        C_ = crypto.blind_sign(b["B_"], k)
+        blinded_sigs.append({
+            "amount": b["amount"],
+            "id": plugin.keyset.id,
+            "C_": C_.format().hex()
+        }) 
+    return blinded_sigs
+
 # https://github.com/cashubtc/nuts/blob/main/04.md#minting-tokens
 @plugin.method("cashu-mint")
 def mint_token(plugin: Plugin, quote: str, blinded_messages):
@@ -107,17 +119,7 @@ def mint_token(plugin: Plugin, quote: str, blinded_messages):
     quote_amount = int(invoice.get("amount_msat")) / 1000
     if requested_amount != quote_amount:
         return {"error": "invalid amount"}
-    blinded_sigs = []
-    for b in blinded_messages:
-        k = plugin.keyset.private_keys[int(b["amount"])]
-        C_ = crypto.blind_sign(b["B_"], k)
-        blinded_sigs.append({
-            "amount": b["amount"],
-            "id": plugin.keyset.id,
-            "C_": C_.format().hex()
-        }) 
-        # TODO: add quoteId to list of quotes for issued tokens 
-    return blinded_sigs
+    return create_blinded_sigs(plugin, blinded_messages) # TODO: add quoteId to list of quotes for issued tokens 
 
 # https://github.com/cashubtc/nuts/blob/main/05.md#melt-quote
 @plugin.method("cashu-quote-melt")
@@ -192,16 +194,8 @@ def swap(plugin, inputs, outputs):
         return {"error": "input amount does not match output amount"}
     if not validate_inputs(plugin, inputs):
         return {"error": "invalid inputs"}
-    blinded_sigs = []
-    for b in outputs:
-        k = plugin.keyset.private_keys[int(b["amount"])]
-        C_ = crypto.blind_sign(b["B_"], k)
-        blinded_sigs.append({
-            "amount": b["amount"],
-            "id": plugin.keyset.id,
-            "C_": C_.format().hex()
-        }) 
-    return blinded_sigs
+    return create_blinded_sigs(plugin, outputs)
+
 # BlindedMessage: https://github.com/cashubtc/nuts/blob/main/00.md#blindedmessage
 @plugin.method("cashu-sign")# TODO: add id to specify which keyset to use
 def sign(plugin, amount, B_):
