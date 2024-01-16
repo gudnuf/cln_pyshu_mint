@@ -180,12 +180,8 @@ def melt_token(plugin: Plugin, quote: str, inputs: list):
     quote_amount = int(quote["amount"])
     if requested_amount != quote_amount:
         return {"error": "invalid amount"}
-    for i in inputs:
-        k = plugin.keys[int(i["amount"])]
-        C = i["C"]
-        secret_bytes = i["secret"].encode()
-        if not crypto.verify_token(C, secret_bytes, k):
-            return {"error": "invalid token"}
+    if not validate_inputs(plugin, inputs):
+        return {"error": "invalid inputs"}
     payment = plugin.rpc.pay(bolt11)
     return {
         "paid": True if payment.get('status') == 'complete' else False,
