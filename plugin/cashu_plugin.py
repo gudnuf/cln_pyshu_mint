@@ -159,6 +159,16 @@ def check_melt_quote(plugin: Plugin, quote: str):
     without_request["paid"] = paid
     return without_request
 
+def validate_inputs(plugin, inputs):
+    all_valid = True
+    for i in inputs:
+        k = plugin.keys[int(i["amount"])]
+        C = i["C"]
+        secret_bytes = i["secret"].encode()
+        if not crypto.verify_token(C, secret_bytes, k):
+            all_valid = False
+    return all_valid
+
 @plugin.method("cashu-melt")
 def melt_token(plugin: Plugin, quote: str, inputs: list):
     quote = plugin.melt_quotes.get(quote)
@@ -182,6 +192,24 @@ def melt_token(plugin: Plugin, quote: str, inputs: list):
         "preimage": payment.get('payment_preimage')
     }
 
+@plugin.method("cashu-swap")
+def swap(plugin, inputs, outputs):
+    inputs_sat = sum([int(proof["amount"]) for proof in inputs])
+    outputs_sat = sum([int(b_["amount"]) for b_ in outputs])
+    if inputs_sat is not outputs_sat:
+        return {"error": "input amount does not match output amount"}
+    if not validate_inputs(plugin, inputs):
+        return {"error": "invalid inputs"}
+    blinded_sigs = []
+    for b in outputs:
+        k = plugin.keys[int(b["amount"])]
+        C_ = crypto.blind_sign(b["B_"], k)
+        blinded_sigs.append({
+            "amount": b["amount"],
+            "id": plugin.keysetId,
+            "C_": C_.format().hex()
+        }) 
+    return blinded_sigs
 # BlindedMessage: https://github.com/cashubtc/nuts/blob/main/00.md#blindedmessage
 @plugin.method("cashu-sign")# TODO: add id to specify which keyset to use
 def sign(plugin, amount, B_):
