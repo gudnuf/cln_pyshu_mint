@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 
 from typing import Dict
-from coincurve import PublicKey
 from pyln.client import Plugin
-import keys
-import  crypto
+from plugin.KeySet import KeySet
+import crypto
 
 plugin = Plugin()
 
-plugin.keys: keys.PrivKeyset
-plugin.keysetId = ""
+plugin.keyset: KeySet
 plugin.melt_quotes: Dict[str, Dict] = {}
 
 plugin.add_option(name="path",
@@ -23,27 +21,25 @@ plugin.add_option(name="max_order",
 @plugin.init()
 def init(options, configuration, plugin):
     seed = "johnny apple"
-    plugin.keys = keys.generate_private_keyset(
-        seed,
-        int(options['max_order'], 10),
-        options["path"]
-    )
-    _, id = keys.get_keyset(plugin.keys)
-    plugin.keysetId = id
+    plugin.keyset = KeySet(settings={
+        "seed": seed,
+        "MAX_ORDER": int(options['max_order'], 10),
+        "derivation_path": options["path"]
+        })
 
 # https://github.com/cashubtc/nuts/blob/main/01.md#nut-01-mint-public-key-exchange
 # GET /keys
 @plugin.method("cashu-get-keys")
 def get_keys(plugin: Plugin):
     """Returns the public keyset of the mint"""
-    pub_keyset, id = keys.get_keyset(plugin.keys)
+    public_keys = plugin.keyset.public_keys
     return {
             "keysets": [
                 {
-                    "id": id,
+                    "id": plugin.keyset.id,
                     "unit": 'sat',
                     "keys": {
-                        key: value.format().hex() for key, value in pub_keyset.items()
+                        key: value.format().hex() for key, value in public_keys.items()
                         },
                 }
             ]
@@ -60,7 +56,7 @@ def get_keysets(plugin: Plugin, keyset_id=None):
         return {
             "keysets": [ # TODO: get all keysets and return them all
                 {
-                    "id": plugin.keysetId,
+                    "id": plugin.keyset.id,
                     "unit": 'sat',
                     "active": True
                 }
@@ -70,7 +66,7 @@ def get_keysets(plugin: Plugin, keyset_id=None):
 
 @plugin.method("cashu-dev-get-privkeys")
 def get_priv_keys(plugin: Plugin):
-    return {key: value.secret.hex() for key, value in plugin.keys.items()}
+    return {key: value.secret.hex() for key, value in plugin.keyset.private_keys.items()}
 
 def mint_quote_response(quote: str, rpc_invoice):
     return {
@@ -113,11 +109,11 @@ def mint_token(plugin: Plugin, quote: str, blinded_messages):
         return {"error": "invalid amount"}
     blinded_sigs = []
     for b in blinded_messages:
-        k = plugin.keys[int(b["amount"])]
+        k = plugin.keyset.private_keys[int(b["amount"])]
         C_ = crypto.blind_sign(b["B_"], k)
         blinded_sigs.append({
             "amount": b["amount"],
-            "id": plugin.keysetId,
+            "id": plugin.keyset.id,
             "C_": C_.format().hex()
         }) 
         # TODO: add quoteId to list of quotes for issued tokens 
@@ -162,7 +158,7 @@ def check_melt_quote(plugin: Plugin, quote: str):
 def validate_inputs(plugin, inputs):
     all_valid = True
     for i in inputs:
-        k = plugin.keys[int(i["amount"])]
+        k = plugin.keyset.private_keys[int(i["amount"])]
         C = i["C"]
         secret_bytes = i["secret"].encode()
         if not crypto.verify_token(C, secret_bytes, k):
@@ -198,11 +194,11 @@ def swap(plugin, inputs, outputs):
         return {"error": "invalid inputs"}
     blinded_sigs = []
     for b in outputs:
-        k = plugin.keys[int(b["amount"])]
+        k = plugin.keyset.private_keys[int(b["amount"])]
         C_ = crypto.blind_sign(b["B_"], k)
         blinded_sigs.append({
             "amount": b["amount"],
-            "id": plugin.keysetId,
+            "id": plugin.keyset.id,
             "C_": C_.format().hex()
         }) 
     return blinded_sigs
@@ -214,7 +210,7 @@ def sign(plugin, amount, B_):
     except:
         return {"error":"unsupported amount"} # TODO: return a proper error
     C_ = crypto.blind_sign(B_, k)
-    id = plugin.keysetId
+    id = plugin.keyset.id
     return {
         "amount": amount,
         "id": id,
