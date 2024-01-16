@@ -2,7 +2,7 @@
 
 from typing import Dict
 from pyln.client import Plugin
-from plugin.KeySet import KeySet
+from KeySet import KeySet
 import crypto
 
 plugin = Plugin()
