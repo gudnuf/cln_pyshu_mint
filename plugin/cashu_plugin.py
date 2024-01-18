@@ -4,6 +4,7 @@ from typing import Dict
 from pyln.client import Plugin
 from KeySet import KeySet
 import crypto
+from utils import tokens_issued, mark_quote_issued
 
 plugin = Plugin()
 
@@ -112,6 +113,9 @@ def create_blinded_sigs(plugin, blinded_messages):
 @plugin.method("cashu-mint")
 def mint_token(plugin: Plugin, quote: str, blinded_messages):
     """Returns blinded signatures for blinded messages once a quote request is paid"""
+    # check that we haven't already issued tokens 
+    if tokens_issued(plugin, quote_id=quote):
+        return {"error": "tokens already issued for this quote"}
     invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0] # TODO: handle when invoices[0] DNE
     if invoice.get("status") == "unpaid":
         return {"error": "invoice not paid"}
@@ -119,6 +123,8 @@ def mint_token(plugin: Plugin, quote: str, blinded_messages):
     quote_amount = int(invoice.get("amount_msat")) / 1000
     if requested_amount != quote_amount:
         return {"error": "invalid amount"}
+    # make sure we do not give out tokens again
+    mark_quote_issued(plugin, quote_id=quote)
     return create_blinded_sigs(plugin, blinded_messages) # TODO: add quoteId to list of quotes for issued tokens 
 
 # https://github.com/cashubtc/nuts/blob/main/05.md#melt-quote
