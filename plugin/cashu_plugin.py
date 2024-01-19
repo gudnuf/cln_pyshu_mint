@@ -213,19 +213,4 @@ def swap(plugin, inputs, outputs):
     [mark_token_spent(plugin, i["secret"]) for i in inputs]
     return blinded_sigs
 
-# BlindedMessage: https://github.com/cashubtc/nuts/blob/main/00.md#blindedmessage
-@plugin.method("cashu-sign")# TODO: add id to specify which keyset to use
-def sign(plugin, amount, B_):
-    try:
-        k = plugin.keys[int(amount)]
-    except:
-        return {"error":"unsupported amount"} # TODO: return a proper error
-    C_ = crypto.blind_sign(B_, k)
-    id = plugin.keyset.id
-    return {
-        "amount": amount,
-        "id": id,
-        "C_": C_.format().hex()
-    }
-
 plugin.run()
