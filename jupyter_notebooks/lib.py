@@ -1,5 +1,6 @@
 from coincurve import PrivateKey, PublicKey
 from hashlib import sha256
+import json
 
 def hash_to_curve(x_bytes):
     # Hash the secret using SHA-256
@@ -31,5 +32,33 @@ def generate_blinded_messages(secrets, amounts):
         rs.append(r.secret)
     return BlindedMessages, rs
 
-l1 = "/usr/local/bin/lightning-cli --lightning-dir=/tmp/l1"
-l2 = "/usr/local/bin/lightning-cli --lightning-dir=/tmp/l2"
+def verify_token(C, secret_bytes, k: str):
+    # k*hash_to_curve(x) == C
+    Y = hash_to_curve(secret_bytes)
+    kY = Y.multiply(bytes.fromhex(k))
+    return kY.format().hex() == C
+
+def construct_token(C_: PublicKey, K: bytes, r: str):
+    rK = PublicKey(K).multiply(r)
+    # C = C_ - rK
+    C = subtract_points(C_, rK)
+    return C.format().hex()
+
+def construct_inputs(blinded_sigs, rs, secrets, pubkeys, privkeys):
+    inputs = []
+    for output, r, s in zip(blinded_sigs, rs, secrets):
+        amount = output["amount"]
+        # K is the public key for this token value
+        K = bytes.fromhex(pubkeys.get(str(amount)))
+        # C_ is blinded signature
+        C_ = PublicKey(bytes.fromhex(output["C_"]))
+        # C is unblinded signature
+        C = construct_token(C_, K, r)
+        assert verify_token(C, s.encode(), privkeys.get(str(amount)))
+        inputs.append({
+            "amount": amount,
+            "C": C,
+            "id": output["id"],
+            "secret": s
+        })
+    return json.dumps(inputs)
