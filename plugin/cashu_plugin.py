@@ -4,7 +4,8 @@ from typing import Dict
 from pyln.client import Plugin
 from KeySet import KeySet
 import crypto
-from utils import tokens_issued, mark_quote_issued, token_spent, mark_token_spent, validate_inputs, find_invoice
+from utils import create_blinded_sigs, tokens_issued, mark_quote_issued, mark_token_spent, validate_inputs, find_invoice
+
 
 plugin = Plugin()
 
@@ -98,18 +99,6 @@ def check_mint_status(plugin: Plugin, quote: str):
     if invoice == None:
         return {"error": "invoice not found"}
     return mint_quote_response(quote, invoice)
-
-def create_blinded_sigs(plugin, blinded_messages):
-    blinded_sigs = []
-    for b in blinded_messages:
-        k = plugin.keyset.private_keys[int(b["amount"])]
-        C_ = crypto.blind_sign(b["B_"], k)
-        blinded_sigs.append({
-            "amount": b["amount"],
-            "id": plugin.keyset.id,
-            "C_": C_.format().hex()
-        }) 
-    return blinded_sigs
 
 # https://github.com/cashubtc/nuts/blob/main/04.md#minting-tokens
 @plugin.method("cashu-mint")

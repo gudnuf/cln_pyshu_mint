@@ -59,3 +59,15 @@ def find_invoice(plugin: Plugin, quote_id:str):
     else:
         # there should only be one invoice with this label
         return invoices[0]
+    
+def create_blinded_sigs(plugin: Plugin, blinded_messages):
+    blinded_sigs = []
+    for b in blinded_messages:
+        k = plugin.keyset.private_keys[int(b["amount"])]
+        C_ = crypto.blind_sign(b["B_"], k)
+        blinded_sigs.append({
+            "amount": b["amount"],
+            "id": plugin.keyset.id,
+            "C_": C_.format().hex()
+        }) 
+    return blinded_sigs
