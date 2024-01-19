@@ -52,3 +52,10 @@ def validate_inputs(plugin, inputs):
             return {"error": f'token with secret {i["secret"]} already spent'}
     return None
 
+def find_invoice(plugin: Plugin, quote_id:str):
+    invoices = plugin.rpc.listinvoices(label=f'cashu:{quote_id}').get("invoices")
+    if invoices == []:
+        return None
+    else:
+        # there should only be one invoice with this label
+        return invoices[0]

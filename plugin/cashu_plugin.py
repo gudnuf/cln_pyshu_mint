@@ -4,7 +4,7 @@ from typing import Dict
 from pyln.client import Plugin
 from KeySet import KeySet
 import crypto
-from utils import tokens_issued, mark_quote_issued, token_spent, mark_token_spent
+from utils import tokens_issued, mark_quote_issued, token_spent, mark_token_spent, validate_inputs, find_invoice
 
 plugin = Plugin()
 
@@ -94,7 +94,9 @@ def mint_token(plugin: Plugin, amount, unit):
 @plugin.method("cashu-check-mint")
 def check_mint_status(plugin: Plugin, quote: str):
     """Checks the status of a quote request"""
-    invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0]
+    invoice = find_invoice(plugin, quote_id=quote)
+    if invoice == None:
+        return {"error": "invoice not found"}
     return mint_quote_response(quote, invoice)
 
 def create_blinded_sigs(plugin, blinded_messages):
@@ -116,7 +118,9 @@ def mint_token(plugin: Plugin, quote: str, blinded_messages):
     # check that we haven't already issued tokens 
     if tokens_issued(plugin, quote_id=quote):
         return {"error": "tokens already issued for this quote"}
-    invoice = plugin.rpc.listinvoices(label=f'cashu:{quote}').get("invoices")[0] # TODO: handle when invoices[0] DNE
+    invoice = find_invoice(plugin, quote_id=quote)
+    if invoice == None:
+        return {"error": "invoice not found"}
     if invoice.get("status") == "unpaid":
         return {"error": "invoice not paid"}
     requested_amount = sum([int(b["amount"]) for b in blinded_messages])
