@@ -6,6 +6,9 @@ from KeySet import KeySet
 import crypto
 from utils import create_blinded_sigs, tokens_issued, mark_quote_issued, mark_token_spent, validate_inputs, find_invoice
 
+# TODO: handle returns... maybe just throw errors and then catch them all the same way
+# rather than directly returning errors? Also is there a better way to return all the objects?
+# what about like how I did with `mint_quote_response`
 
 plugin = Plugin()
 
@@ -22,7 +25,8 @@ plugin.add_option(name="max_order",
 
 @plugin.init()
 def init(options, configuration, plugin):
-    seed = "johnny apple"
+    """initialize the plugin"""
+    seed = "johnny apple" # TODO: can we get the hsm secret from the node? Or make the node derive the seed
     plugin.keyset = KeySet(settings={
         "seed": seed,
         "MAX_ORDER": int(options['max_order'], 10),
@@ -66,10 +70,13 @@ def get_keysets(plugin: Plugin, keyset_id=None):
         }
 
 
+# TODO: make a way / figure out how to turn this off xD
 @plugin.method("cashu-dev-get-privkeys")
 def get_priv_keys(plugin: Plugin):
+    """get mint's private keys"""
     return {key: value.secret.hex() for key, value in plugin.keyset.private_keys.items()}
 
+# TODO: move this?? 
 def mint_quote_response(quote: str, rpc_invoice):
     return {
         "quote": quote,
@@ -79,19 +86,20 @@ def mint_quote_response(quote: str, rpc_invoice):
     }
 
 # https://github.com/cashubtc/nuts/blob/main/04.md#mint-quote
+# POST /v1/mint/quote/bolt11
 @plugin.method("cashu-quote-mint")
 def mint_token(plugin: Plugin, amount, unit):
     """Returns a quote for minting tokens"""
     quote = crypto.generate_quote()
-    # TODO: check that amount and unit are valid
     invoice = plugin.rpc.invoice(
         amount_msat=amount * 1000, 
         label=f'cashu:{quote}', 
-        description="An invoice"
+        description="An invoice" # TODO: come up with a better description
     )
     return mint_quote_response(quote, invoice)
 
 # https://github.com/cashubtc/nuts/blob/main/04.md#check-mint-quote-state
+# GET /v1/mint/quote/bolt11/{quote_id}
 @plugin.method("cashu-check-mint")
 def check_mint_status(plugin: Plugin, quote: str):
     """Checks the status of a quote request"""
@@ -101,6 +109,7 @@ def check_mint_status(plugin: Plugin, quote: str):
     return mint_quote_response(quote, invoice)
 
 # https://github.com/cashubtc/nuts/blob/main/04.md#minting-tokens
+# POST /v1/mint/bolt11
 @plugin.method("cashu-mint")
 def mint_token(plugin: Plugin, quote: str, blinded_messages):
     """Returns blinded signatures for blinded messages once a quote request is paid"""
@@ -118,11 +127,12 @@ def mint_token(plugin: Plugin, quote: str, blinded_messages):
         return {"error": "invalid amount"}
     # make sure we do not give out tokens again
     mark_quote_issued(plugin, quote_id=quote)
-    return create_blinded_sigs(plugin, blinded_messages) # TODO: add quoteId to list of quotes for issued tokens 
+    return create_blinded_sigs(plugin, blinded_messages)
 
 # https://github.com/cashubtc/nuts/blob/main/05.md#melt-quote
+# POST /v1/melt/quote/bolt11
 @plugin.method("cashu-quote-melt")
-def get_melt_quote(plugin: Plugin, req: str, unit: str): # QUESTION: why does 'request' not work but 'req' does?
+def get_melt_quote(plugin: Plugin, req: str, unit: str):
     """Returns a quote for melting tokens"""
     amount = plugin.rpc.decodepay(req).get("amount_msat") // 1000
     response = {
@@ -137,7 +147,8 @@ def get_melt_quote(plugin: Plugin, req: str, unit: str): # QUESTION: why does 'r
     plugin.melt_quotes[response["quote"]] = response_with_request
     return response
 
-
+# https://github.com/cashubtc/nuts/blob/main/05.md#check-melt-quote-state
+# GET /v1/melt/quote/bolt11/{quote_id}
 @plugin.method("cashu-check-melt")
 def check_melt_quote(plugin: Plugin, quote: str):
     """Checks the status of a melt quote request"""
@@ -151,13 +162,16 @@ def check_melt_quote(plugin: Plugin, quote: str):
     except:
         paid = False
 
-    without_request = stored_quote.copy()
+    without_request = stored_quote.copy() #TODO: how to do this better? don't write 3 lines of `without_request`
     without_request.pop("request")
     without_request["paid"] = paid
     return without_request
 
+# https://github.com/cashubtc/nuts/blob/main/05.md#melting-tokens
+# POST /v1/melt/bolt11
 @plugin.method("cashu-melt")
 def melt_token(plugin: Plugin, quote: str, inputs: list):
+    """melt tokens"""
     quote = plugin.melt_quotes.get(quote)
     if not quote:
         return {"error": "quote not found"}
@@ -178,8 +192,11 @@ def melt_token(plugin: Plugin, quote: str, inputs: list):
         "preimage": payment.get('payment_preimage')
     }
 
+# https://github.com/cashubtc/nuts/blob/main/03.md
+# POST /v1/swap
 @plugin.method("cashu-swap")
 def swap(plugin, inputs, outputs):
+    """swap tokens for other tokens"""
     inputs_sat = sum([int(proof["amount"]) for proof in inputs])
     outputs_sat = sum([int(b_["amount"]) for b_ in outputs])
     if inputs_sat is not outputs_sat:
