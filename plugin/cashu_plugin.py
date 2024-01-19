@@ -163,21 +163,8 @@ def check_melt_quote(plugin: Plugin, quote: str):
     without_request["paid"] = paid
     return without_request
 
-def validate_inputs(plugin, inputs):
-    all_valid = True
-    for i in inputs:
-        k = plugin.keyset.private_keys[int(i["amount"])]
-        C = i["C"]
-        secret_bytes = i["secret"].encode()
-        if not crypto.verify_token(C, secret_bytes, k):
-            all_valid = False
-    return all_valid
-
 @plugin.method("cashu-melt")
 def melt_token(plugin: Plugin, quote: str, inputs: list):
-    for i in inputs: # TODO: make this a part of the validate tokens function
-        if token_spent(plugin, secret=i["secret"]):
-            return {"error": f'token with secret {i["secret"]} already spent'}
     quote = plugin.melt_quotes.get(quote)
     if not quote:
         return {"error": "quote not found"}
@@ -187,8 +174,9 @@ def melt_token(plugin: Plugin, quote: str, inputs: list):
     quote_amount = int(quote["amount"])
     if requested_amount != quote_amount:
         return {"error": "invalid amount"}
-    if not validate_inputs(plugin, inputs):
-        return {"error": "invalid inputs"}
+    # validate the inputs and return an error message if present
+    if (result := validate_inputs(plugin, inputs)) is not None:
+        return result
     payment = plugin.rpc.pay(bolt11)
     ## store the secrets for each token so we know they've been spent
     [mark_token_spent(plugin, i["secret"]) for i in inputs]
@@ -199,15 +187,13 @@ def melt_token(plugin: Plugin, quote: str, inputs: list):
 
 @plugin.method("cashu-swap")
 def swap(plugin, inputs, outputs):
-    for i in inputs: # TODO: make this a part of the validate tokens function
-        if token_spent(plugin, secret=i["secret"]):
-            return {"error": f'token with secret {i["secret"]} already spent'}
     inputs_sat = sum([int(proof["amount"]) for proof in inputs])
     outputs_sat = sum([int(b_["amount"]) for b_ in outputs])
     if inputs_sat is not outputs_sat:
         return {"error": "input amount does not match output amount"}
-    if not validate_inputs(plugin, inputs):
-        return {"error": "invalid inputs"}
+    # validate the inputs and return an error message if present
+    if (result := validate_inputs(plugin, inputs)) is not None:
+        return result
     blinded_sigs = create_blinded_sigs(plugin, outputs)
     ## store the secrets for each token so we know they've been spent
     [mark_token_spent(plugin, i["secret"]) for i in inputs]

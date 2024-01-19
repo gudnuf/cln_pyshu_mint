@@ -41,3 +41,14 @@ def mark_token_spent(plugin: Plugin, secret: str):
     key.append(secret)
     plugin.rpc.datastore(key=key, string="")
 
+def validate_inputs(plugin, inputs):
+    for i in inputs:
+        k = plugin.keyset.private_keys[int(i["amount"])]
+        C = i["C"]
+        secret_bytes = i["secret"].encode()
+        if not crypto.verify_token(C, secret_bytes, k):
+            return {"error": "invalid signature on an input"}
+        if token_spent(plugin, secret=i["secret"]):
+            return {"error": f'token with secret {i["secret"]} already spent'}
+    return None
+
