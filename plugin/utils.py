@@ -1,6 +1,7 @@
 from pyln.client import Plugin
 
 ISSUED_TOKEN_KEY_BASE = ["cashu", "issued_tokens"]
+TOKEN_SECRET_KEY_BASE = ["cashu", "token_secrets"]
 
 # look in node's datastore for an entry matching the quote_id
 def find_mint_quote(plugin: Plugin, quote_id: str):
@@ -21,3 +22,22 @@ def mark_quote_issued(plugin: Plugin, quote_id: str):
     key = ISSUED_TOKEN_KEY_BASE.copy()
     key.append(quote_id)
     plugin.rpc.datastore(key=key, string="")
+
+def find_token_secret(plugin: Plugin, secret: str):
+    key = TOKEN_SECRET_KEY_BASE.copy()
+    key.append(secret)
+    secret = plugin.rpc.listdatastore(key=key)["datastore"]
+    return secret
+
+def token_spent(plugin: Plugin, secret: str):
+    secret = find_token_secret(plugin, secret)
+    if secret == []:
+        return False
+    else:
+        return True
+    
+def mark_token_spent(plugin: Plugin, secret: str):
+    key = TOKEN_SECRET_KEY_BASE.copy()
+    key.append(secret)
+    plugin.rpc.datastore(key=key, string="")
+

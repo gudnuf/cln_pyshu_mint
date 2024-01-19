@@ -4,7 +4,7 @@ from typing import Dict
 from pyln.client import Plugin
 from KeySet import KeySet
 import crypto
-from utils import tokens_issued, mark_quote_issued
+from utils import tokens_issued, mark_quote_issued, token_spent, mark_token_spent
 
 plugin = Plugin()
 
@@ -175,6 +175,9 @@ def validate_inputs(plugin, inputs):
 
 @plugin.method("cashu-melt")
 def melt_token(plugin: Plugin, quote: str, inputs: list):
+    for i in inputs: # TODO: make this a part of the validate tokens function
+        if token_spent(plugin, secret=i["secret"]):
+            return {"error": f'token with secret {i["secret"]} already spent'}
     quote = plugin.melt_quotes.get(quote)
     if not quote:
         return {"error": "quote not found"}
@@ -187,6 +190,8 @@ def melt_token(plugin: Plugin, quote: str, inputs: list):
     if not validate_inputs(plugin, inputs):
         return {"error": "invalid inputs"}
     payment = plugin.rpc.pay(bolt11)
+    ## store the secrets for each token so we know they've been spent
+    [mark_token_spent(plugin, i["secret"]) for i in inputs]
     return {
         "paid": True if payment.get('status') == 'complete' else False,
         "preimage": payment.get('payment_preimage')
@@ -194,13 +199,19 @@ def melt_token(plugin: Plugin, quote: str, inputs: list):
 
 @plugin.method("cashu-swap")
 def swap(plugin, inputs, outputs):
+    for i in inputs: # TODO: make this a part of the validate tokens function
+        if token_spent(plugin, secret=i["secret"]):
+            return {"error": f'token with secret {i["secret"]} already spent'}
     inputs_sat = sum([int(proof["amount"]) for proof in inputs])
     outputs_sat = sum([int(b_["amount"]) for b_ in outputs])
     if inputs_sat is not outputs_sat:
         return {"error": "input amount does not match output amount"}
     if not validate_inputs(plugin, inputs):
         return {"error": "invalid inputs"}
-    return create_blinded_sigs(plugin, outputs)
+    blinded_sigs = create_blinded_sigs(plugin, outputs)
+    ## store the secrets for each token so we know they've been spent
+    [mark_token_spent(plugin, i["secret"]) for i in inputs]
+    return blinded_sigs
 
 # BlindedMessage: https://github.com/cashubtc/nuts/blob/main/00.md#blindedmessage
 @plugin.method("cashu-sign")# TODO: add id to specify which keyset to use
