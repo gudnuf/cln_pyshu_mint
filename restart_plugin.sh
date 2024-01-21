@@ -3,10 +3,21 @@
 
 set -eu
 
-. ./.env
+default_plugin_path=$(pwd)/plugin/cashu_plugin.py
+
+# Check if .env file exists
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+
+    if [ -z "${PLUGIN_PATH}" ]; then
+        PLUGIN_PATH=$default_plugin_path
+    fi
+else
+    PLUGIN_PATH=$default_plugin_path
+fi
 
 if [ ! -f "$PLUGIN_PATH" ]; then
-  echo "Error: Path to plugin not found. Check the .testing.env file"
+  echo "Error: path to plugin not found $PLUGIN_PATH"
   exit 1
 fi
 
