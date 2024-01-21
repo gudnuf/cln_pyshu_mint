@@ -71,12 +71,12 @@ The RPC commands exposed by this plugin match each of the routes defined in the 
 Below is the summary of each method defined in the provided code, formatted in markdown as requested:
 
 ### cashu-get-keys
-[docs](https://github.com/cashubtc/nuts/blob/main/01.md#nut-01-mint-public-key-exchange)
+[spec](https://github.com/cashubtc/nuts/blob/main/01.md#nut-01-mint-public-key-exchange)
 - **Route**: `GET /keys`
 - **Summary**: Returns the public keyset of the mint.
 
 ### cashu-get-keysets
-[docs](https://github.com/cashubtc/nuts/blob/main/02.md#multiple-keysets)
+[spec](https://github.com/cashubtc/nuts/blob/main/02.md#multiple-keysets)
 - **Routes**: `GET /keysets` & `GET /keyset/{keysetId}`
 - **Summary**: Returns all or a specific keyset of the mint. Currently, it only supports returning the mint's primary keyset.
 
@@ -84,36 +84,36 @@ Below is the summary of each method defined in the provided code, formatted in m
 - **Summary**: Retrieves the mint's private keys. This method exposes the private keys from the mint's keyset, formatted for external use. This method is development use only.
 
 ### cashu-quote-mint
-[docs](https://github.com/cashubtc/nuts/blob/main/04.md#mint-quote)
+[spec](https://github.com/cashubtc/nuts/blob/main/04.md#mint-quote)
 - **Route**: `POST /v1/mint/quote/bolt11`
 - **Summary**: Returns a quote for minting tokens. It generates a quote, and creates an invoice for the requested amount.
 
 ### cashu-check-mint
-[docs](https://github.com/cashubtc/nuts/blob/main/04.md#check-mint-quote-state)
+[spec](https://github.com/cashubtc/nuts/blob/main/04.md#check-mint-quote-state)
 - **Route**: `GET /v1/mint/quote/bolt11/{quote_id}`
 - **Summary**: Checks the status of a quote request for minting tokens. It finds the invoice associated with the quote and returns the quote's status, including whether it has been paid.
 
 ### cashu-mint
-[docs](https://github.com/cashubtc/nuts/blob/main/04.md#minting-tokens)
+[spec](https://github.com/cashubtc/nuts/blob/main/04.md#minting-tokens)
 - **Route**: `POST /v1/mint/bolt11`
 - **Summary**: Returns blinded signatures for blinded messages once a quote request is paid. It verifies the quote's payment status, validates the requested amount, and issues blinded signatures if the conditions are met.
 
 ### cashu-quote-melt
-[docs](https://github.com/cashubtc/nuts/blob/main/05.md#melt-quote)
+[spec](https://github.com/cashubtc/nuts/blob/main/05.md#melt-quote)
 - **Route**: `POST /v1/melt/quote/bolt11`
 - **Summary**: Returns a quote for melting tokens.
 
 ### cashu-check-melt
-[docs](https://github.com/cashubtc/nuts/blob/main/05.md#check-melt-quote-state)
+[spec](https://github.com/cashubtc/nuts/blob/main/05.md#check-melt-quote-state)
 - **Route**: `GET /v1/melt/quote/bolt11/{quote_id}`
 - **Summary**: Checks the status of the invoice associated with the melt quote.
 
 ### cashu-melt
-[docs](https://github.com/cashubtc/nuts/blob/main/05.md#melting-tokens)
+[spec](https://github.com/cashubtc/nuts/blob/main/05.md#melting-tokens)
 - **Route**: `POST /v1/melt/bolt11`
 - **Summary**: Processes melting tokens into a payment. It verifies the quote and the sum of input amounts, validates the inputs, and executes a payment if all conditions are met, marking tokens as spent.
 
 ### cashu-swap
-[docs](https://github.com/cashubtc/nuts/blob/main/03.md)
+[spec](https://github.com/cashubtc/nuts/blob/main/03.md)
 - **Route**: `POST /v1/swap`
 - **Summary**: Swaps tokens for other tokens. It validates the total amounts of inputs and outputs are equal, checks the inputs, creates blinded signatures for the outputs, and marks the input tokens as spent.
