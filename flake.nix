@@ -97,6 +97,14 @@
               cryptography
               coincurve
               flask
+              gunicorn
+            ]))
+
+            (python311.withPackages (ps: with ps; [
+              flask-restx
+              flask-cors
+              flask-socketio
+              gevent
             ]))
           ];
           # Automatically run jupyter when entering the shell.
