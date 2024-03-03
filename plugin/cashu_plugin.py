@@ -111,7 +111,7 @@ def check_mint_status(plugin: Plugin, quote: str):
 # https://github.com/cashubtc/nuts/blob/main/04.md#minting-tokens
 # POST /v1/mint/bolt11
 @plugin.method("cashu-mint")
-def mint_token(plugin: Plugin, quote: str, blinded_messages):
+def mint_token(plugin: Plugin, quote: str, outputs):
     """Returns blinded signatures for blinded messages once a quote request is paid"""
     # check that we haven't already issued tokens 
     if tokens_issued(plugin, quote_id=quote):
@@ -121,13 +121,16 @@ def mint_token(plugin: Plugin, quote: str, blinded_messages):
         return {"error": "invoice not found"}
     if invoice.get("status") == "unpaid":
         return {"error": "invoice not paid"}
-    requested_amount = sum([int(b["amount"]) for b in blinded_messages])
+    requested_amount = sum([int(b["amount"]) for b in outputs])
     quote_amount = int(invoice.get("amount_msat")) / 1000
     if requested_amount != quote_amount:
         return {"error": "invalid amount"}
     # make sure we do not give out tokens again
     mark_quote_issued(plugin, quote_id=quote)
-    return create_blinded_sigs(plugin, blinded_messages)
+    sigs = create_blinded_sigs(plugin, outputs)
+    return {
+        "signatures": sigs
+    }
 
 # https://github.com/cashubtc/nuts/blob/main/05.md#melt-quote
 # POST /v1/melt/quote/bolt11
