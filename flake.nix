@@ -87,7 +87,7 @@
             libeatmydata
             gawk
 
-            (python3.withPackages (ps: with ps; with python3Packages; [
+            (python311.withPackages (ps: with ps; [
               jupyter
               ipython
               pip
@@ -98,13 +98,11 @@
               coincurve
               flask
               gunicorn
-            ]))
-
-            (python311.withPackages (ps: with ps; [
               flask-restx
               flask-cors
               flask-socketio
               gevent
+              gevent-websocket
             ]))
           ];
           # Automatically run jupyter when entering the shell.
