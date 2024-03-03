@@ -1,5 +1,5 @@
 from pyln.client import Plugin
-import crypto
+from . import crypto
 
 # question: is there a way to make these functions work so that we do not have to pass the plugin to all of them??
 #... should this be a class? Or are they fine?
@@ -52,9 +52,13 @@ def mark_token_spent(plugin: Plugin, secret: str):
 def validate_inputs(plugin, inputs):
     """check sigs and that inputs haven't been spent"""
     for i in inputs:
+        plugin.log(f"i: {i}")
         k = plugin.keyset.private_keys[int(i["amount"])]
+        plugin.log(f"k: {k.to_hex()}")
         C = i["C"]
         secret_bytes = i["secret"].encode()
+        plugin.log(f"secret_bytes: {secret_bytes}")
+        plugin.log(f"C: {C}")
         if not crypto.verify_token(C, secret_bytes, k):
             return {"error": "invalid signature on an input"}
         if token_spent(plugin, secret=i["secret"]):

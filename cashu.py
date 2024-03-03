@@ -1,27 +1,14 @@
-#!/usr/bin/env python3
+#!/nix/store/5k91mg4qjylxbfvrv748smfh51ppjq0g-python3-3.11.6/bin/python
 
-from typing import Dict
 from pyln.client import Plugin
-from KeySet import KeySet
-import crypto
-from utils import create_blinded_sigs, tokens_issued, mark_quote_issued, mark_token_spent, validate_inputs, find_invoice
+from utilities.KeySet import KeySet
+from utilities import crypto
+from utilities.utils import create_blinded_sigs, tokens_issued, mark_quote_issued, mark_token_spent, validate_inputs, find_invoice
+from utilities.rpc_plugin import plugin
 
 # TODO: handle returns... maybe just throw errors and then catch them all the same way
 # rather than directly returning errors? Also is there a better way to return all the objects?
 # what about like how I did with `mint_quote_response`
-
-plugin = Plugin()
-
-plugin.keyset: KeySet
-plugin.melt_quotes: Dict[str, Dict] = {}
-
-plugin.add_option(name="path",
-                  default="/0/0/0/0",
-                  description="Derivation path for current keyset")
-
-plugin.add_option(name="max_order",
-                  default="64",
-                  description="Determines values the mint supports")
 
 @plugin.init()
 def init(options, configuration, plugin):
@@ -135,9 +122,10 @@ def mint_token(plugin: Plugin, quote: str, outputs):
 # https://github.com/cashubtc/nuts/blob/main/05.md#melt-quote
 # POST /v1/melt/quote/bolt11
 @plugin.method("cashu-quote-melt")
-def get_melt_quote(plugin: Plugin, req: str, unit: str):
+def get_melt_quote(plugin: Plugin, request: str, unit: str):
     """Returns a quote for melting tokens"""
-    amount = plugin.rpc.decodepay(req).get("amount_msat") // 1000
+    plugin.log(f"request: {request}")
+    amount = plugin.rpc.decodepay(request).get("amount_msat") // 1000
     response = {
         "quote": crypto.generate_quote(),
         "amount": amount,
@@ -146,7 +134,7 @@ def get_melt_quote(plugin: Plugin, req: str, unit: str):
         "expiry": 0 # TODO: add expiry... invoice expiry? 1 minute?
     }
     # add request to what we store so we can get the bolt11 later
-    response_with_request = {**response, "request": req}
+    response_with_request = {**response, "request": request}
     plugin.melt_quotes[response["quote"]] = response_with_request
     return response
 
@@ -200,6 +188,8 @@ def melt_token(plugin: Plugin, quote: str, inputs: list):
 @plugin.method("cashu-swap")
 def swap(plugin, inputs, outputs):
     """swap tokens for other tokens"""
+    plugin.log(f"inputs: {inputs}")
+    plugin.log(f"outputs: {outputs}")
     inputs_sat = sum([int(proof["amount"]) for proof in inputs])
     outputs_sat = sum([int(b_["amount"]) for b_ in outputs])
     if inputs_sat is not outputs_sat:
