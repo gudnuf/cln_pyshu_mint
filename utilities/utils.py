@@ -1,5 +1,5 @@
 from pyln.client import Plugin
-from .mint import Keyset
+from .models import Keyset
 from . import crypto
 
 # question: is there a way to make these functions work so that we do not have to pass the plugin to all of them??

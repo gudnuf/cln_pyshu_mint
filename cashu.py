@@ -1,10 +1,24 @@
 #!/nix/store/5k91mg4qjylxbfvrv748smfh51ppjq0g-python3-3.11.6/bin/python
 
 from pyln.client import Plugin
-from utilities.mint import Mint
-from utilities.models import GetKeysResponse, GetKeysetsResponse, PostQuoteMintResponse, PostMintResponse, PostQuoteMeltResponse, PostMeltResponse, PostSwapResponse
+from utilities.models import (
+    Mint,
+    GetKeysResponse,
+    GetKeysetsResponse,
+    PostQuoteMintResponse,
+    PostMintResponse,
+    PostQuoteMeltResponse,
+    PostMeltResponse,
+    PostSwapResponse
+)
+from utilities.utils import (create_blinded_sigs,
+                             tokens_issued,
+                             mark_quote_issued,
+                             mark_token_spent,
+                             validate_inputs,
+                             find_invoice
+                             )
 from utilities import crypto
-from utilities.utils import create_blinded_sigs, tokens_issued, mark_quote_issued, mark_token_spent, validate_inputs, find_invoice, generate_invoice
 from utilities.rpc_plugin import plugin
 
 # TODO: handle returns... maybe just throw errors and then catch them all the same way rather than directly returning errors?
