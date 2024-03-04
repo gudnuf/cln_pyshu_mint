@@ -1,6 +1,9 @@
 from typing import Dict
 from hashlib import sha256
 from coincurve import PublicKey, PrivateKey
+from .rpc_plugin import plugin
+from .crypto import random_hash
+from .models import MintQuote
 
 
 class Keyset:
@@ -54,3 +57,32 @@ class Keyset:
 class Mint:
     def __init__(self, derivation_path: str, seed: str, max_order: int):
         self.keyset = Keyset(derivation_path, seed, max_order)
+
+    def generate_invoice(self, amount_msat: int, quote_id: str):
+        invoice = plugin.rpc.invoice(
+            amount_msat=amount_msat,
+            label=f'cashu:{quote_id}',
+            description="Cashu mint request"
+        )
+
+        if invoice.get("bolt11") == None:
+            raise ValueError("failed to generate invoice")
+        else:
+            return invoice.get("bolt11"), invoice.get("expires_at")
+
+    def mint_quote(self, amount_sat: int):
+        # TODO: add a max peg in
+        # TODO: add a max balance for the the mint
+
+        amount_msat = amount_sat * 1000
+        quote_id = random_hash()
+
+        bolt11, expires_at = self.generate_invoice(
+            amount_msat, quote_id)
+
+        return MintQuote(
+            quote_id=quote_id,
+            request=bolt11,
+            paid=False,
+            expiry=expires_at
+        )

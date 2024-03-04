@@ -60,14 +60,16 @@ def get_priv_keys(plugin: Plugin):
 
 
 @plugin.method("cashu-quote-mint")
-def mint_token(plugin: Plugin, amount, unit):
+def get_mint_quote(plugin: Plugin, amount, unit):
     """Returns a quote for minting tokens"""
+    quote = mint.mint_quote(amount_sat=int(amount))
 
-    quote = crypto.generate_quote()
-    amount_msat = amount * 1000
-    bolt11, expires_at = generate_invoice(plugin, amount_msat, quote)
-
-    return PostQuoteMintResponse(quote, request=bolt11, paid=False, expiry=expires_at)
+    return PostQuoteMintResponse(
+        quote=quote.quote_id,
+        request=quote.request,
+        paid=quote.paid,
+        expiry=quote.expiry
+    )
 
 
 @plugin.method("cashu-check-mint")

@@ -2,6 +2,15 @@ from typing import List
 from .mint import Keyset
 
 
+class MintQuote():
+
+    def __init__(self, quote_id: str, request: str, paid: bool, expiry: str,):
+        self.request = request
+        self.quote_id = quote_id
+        self.paid = paid
+        self.expiry = expiry
+
+
 class BlindedSignature():
     """
     Blinded signature or "promise" which is the signature on a `BlindedMessage`

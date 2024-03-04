@@ -1,3 +1,5 @@
+import random
+import base64
 from coincurve import PrivateKey, PublicKey
 from hashlib import sha256
 
@@ -12,6 +14,14 @@ def blind_sign(B_, k: PrivateKey):
 # TODO: figure a better way to generate the quote
 def generate_quote():
     return sha256(PrivateKey().secret).hexdigest()[0:16]
+
+
+def random_hash() -> str:
+    """Returns a base64-urlsafe encoded random hash."""
+    return base64.urlsafe_b64encode(
+        bytes([random.getrandbits(8) for i in range(30)])
+    ).decode()
+
 
 def hash_to_curve(x_bytes):
     # Hash the secret using SHA-256
