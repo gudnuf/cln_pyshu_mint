@@ -90,9 +90,14 @@ def get_mint_quote(plugin: Plugin, amount, unit):
 def check_mint_status(plugin: Plugin, quote: str):
     """Checks the status of a quote request"""
 
-    bolt11, paid, expires_at, _ = find_invoice(plugin, quote_id=quote)
+    mint_quote = mint.get_mint_quote(quote)
 
-    return PostQuoteMintResponse(quote, request=bolt11, paid=paid, expiry=expires_at)
+    return PostQuoteMintResponse(
+        quote=mint_quote.quote_id,
+        request=mint_quote.request,
+        paid=mint_quote.paid,
+        expiry=mint_quote.expiry
+    )
 
 
 @plugin.method("cashu-mint")
