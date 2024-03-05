@@ -115,16 +115,17 @@ def mint_token(plugin: Plugin, quote: str, outputs):
 @plugin.method("cashu-quote-melt")
 def get_melt_quote(plugin: Plugin, req: str, unit: str):
     """Returns a quote for melting tokens"""
+    melt_quote = mint.melt_quote(bolt11=req)
 
-    plugin.log(f"request: {req}")
-    amount = plugin.rpc.decodepay(req).get("amount_msat") // 1000
-    quote = crypto.generate_quote()
-    response = PostQuoteMeltResponse(
-        quote, amount, fee_reserve=0, paid=False).to_json()
-    # add request to what we store so we can get the bolt11 later
-    response_with_request = {**response, "request": req}
-    plugin.melt_quotes[response["quote"]] = response_with_request
-    return response
+    melt_quote.save()
+
+    return PostQuoteMeltResponse(
+        quote=melt_quote.quote_id,
+        amount=melt_quote.amount_sat,
+        fee_reserve=melt_quote.fee_reserve,
+        paid=melt_quote.paid,
+        expiry=melt_quote.expiry
+    )
 
 
 @plugin.method("cashu-check-melt")

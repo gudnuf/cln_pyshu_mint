@@ -1,10 +1,13 @@
 import time
+import json
+import math
+from pyln.client import Millisatoshi
 from typing import List, Dict
 from hashlib import sha256
 from coincurve import PublicKey, PrivateKey
 from .rpc_plugin import plugin
 from .crypto import random_hash, blind_sign
-from .utils import ISSUED_TOKEN_KEY_BASE
+from .utils import ISSUED_TOKEN_KEY_BASE, MELT_QUOTE_KEY_BASE
 
 
 class Keyset:
@@ -148,6 +151,25 @@ class Mint:
 
         return promises
 
+    def melt_quote(self, bolt11: str):
+        # TODO: look to see if a quote already exists for this bolt11
+        
+        amount_msat = Millisatoshi(
+            plugin.rpc.decodepay(bolt11).get("amount_msat"))
+        amount_sat = math.floor(amount_msat.to_satoshi())
+        quote_id = random_hash()
+        fee_reserve = 0
+        expiry = None
+
+        return MeltQuote(
+            quote_id=quote_id,
+            amount_sat=amount_sat,
+            fee_reserve=fee_reserve,
+            paid=False,
+            expiry=expiry,
+            request=bolt11
+        )
+
 
 class Invoice():
 
@@ -191,6 +213,33 @@ class MintQuote():
         key = ISSUED_TOKEN_KEY_BASE.copy()
         key.append(self.quote_id)
         return plugin.rpc.listdatastore(key=key)["datastore"] != []
+
+
+class MeltQuote():
+    def __init__(self, quote_id: str, amount_sat: str, fee_reserve: int, paid: bool, request: str, expiry: int = None):
+        self.quote_id = quote_id
+        self.amount_sat = amount_sat
+        self.fee_reserve = fee_reserve
+        self.paid = paid
+        self.request = request
+        self.expiry = expiry
+
+    def to_json(self):
+        return {
+            "quote": self.quote_id,
+            "amount": self.amount_sat,
+            "fee_reserve": self.fee_reserve,
+            "paid": self.paid,
+            "request": self.request,
+            "expiry": self.expiry
+        }
+
+    def save(self):
+        """ Store the quote data in the datastore """
+
+        key = MELT_QUOTE_KEY_BASE.copy()
+        key.append(self.quote_id)
+        plugin.rpc.datastore(key=key, string=json.dumps(self.to_json()))
 
 
 class BlindedSignature():

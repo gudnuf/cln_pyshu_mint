@@ -7,6 +7,7 @@ from . import crypto
 
 ISSUED_TOKEN_KEY_BASE = ["cashu", "issued_tokens"]
 TOKEN_SECRET_KEY_BASE = ["cashu", "token_secrets"]
+MELT_QUOTE_KEY_BASE = ["cashu", "melt_quotes"]
 
 
 def find_mint_quote(plugin: Plugin, quote_id: str):
