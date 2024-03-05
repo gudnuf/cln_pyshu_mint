@@ -105,25 +105,11 @@ def mint_token(plugin: Plugin, quote: str, outputs):
     """
     Returns blinded signatures for blinded messages once a quote request is paid
     """
+    # TODO: validate outputs list
 
-    if tokens_issued(plugin, quote_id=quote):
-        return {"error": "tokens already issued for this quote"}
+    promises = mint.mint_tokens(outputs=outputs, quote_id=quote)
 
-    _, paid, _, amount_msat = find_invoice(plugin, quote_id=quote)
-
-    if not paid:
-        return {"error": "invoice not paid"}
-
-    requested_amount = sum([int(b["amount"]) for b in outputs])
-    quote_amount = int(amount_msat) / 1000
-
-    if requested_amount != quote_amount:
-        return {"error": "invalid amount"}
-
-    sigs = create_blinded_sigs(mint.keyset, outputs)
-
-    mark_quote_issued(plugin, quote_id=quote)
-    return PostMintResponse(sigs)
+    return PostMintResponse(promises)
 
 
 @plugin.method("cashu-quote-melt")

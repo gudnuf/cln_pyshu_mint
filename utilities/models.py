@@ -1,8 +1,10 @@
+import time
 from typing import List, Dict
 from hashlib import sha256
 from coincurve import PublicKey, PrivateKey
 from .rpc_plugin import plugin
-from .crypto import random_hash
+from .crypto import random_hash, blind_sign
+from .utils import ISSUED_TOKEN_KEY_BASE
 
 
 class Keyset:
@@ -56,6 +58,24 @@ class Mint:
     def __init__(self, derivation_path: str, seed: str, max_order: int):
         self.keyset = Keyset(derivation_path, seed, max_order)
 
+    def _generate_promise(self, output: List[Dict[str, str]]):
+        k = self.keyset.private_keys[int(output["amount"])]
+        B_ = output["B_"]
+        C_ = blind_sign(B_, k)
+        return BlindedSignature(
+            keyset_id=self.keyset.id,
+            amount=int(output["amount"]),
+            signature=C_.format().hex()
+        )
+
+    def _generate_promises(self, outputs: List[Dict[str, str]]):
+        promises: List[BlindedSignature] = []
+
+        for output in outputs:
+            promises.append(self._generate_promise(output))
+
+        return promises
+
     def generate_invoice(self, amount_msat: int, quote_id: str):
         invoice = plugin.rpc.invoice(
             amount_msat=amount_msat,
@@ -95,6 +115,7 @@ class Mint:
 
         return MintQuote(
             quote_id=quote_id,
+            amount_sat=amount_sat,
             request=bolt11,
             paid=False,
             expiry=expires_at
@@ -105,10 +126,27 @@ class Mint:
 
         return MintQuote(
             quote_id=quote,
+            amount_sat=mint_invoice.amount_msat // 1000,
             request=mint_invoice.bolt11,
             paid=mint_invoice.paid,
             expiry=mint_invoice.expires_at
         )
+
+    def mint_tokens(self, outputs: List[Dict[str, str]], quote_id: str):
+        requested_amount = sum([int(b["amount"]) for b in outputs])
+        quote = self.get_mint_quote(quote_id)
+
+        assert quote.paid, "Quote not paid"
+        assert not quote.was_issued(), "Tokens already issued for this quote"
+        assert requested_amount == quote.amount_sat, "amount to mint does not match quote amount"
+        if quote.expiry:
+            assert quote.expiry > int(time.time()), "Quote expired"
+
+        promises = self._generate_promises(outputs)
+
+        quote.mark_quote_issued()
+
+        return promises
 
 
 class Invoice():
@@ -132,11 +170,27 @@ class Invoice():
 
 class MintQuote():
 
-    def __init__(self, quote_id: str, request: str, paid: bool, expiry: str,):
+    def __init__(self, quote_id: str, amount_sat: int, request: str, paid: bool, expiry: str,):
         self.request = request
         self.quote_id = quote_id
         self.paid = paid
         self.expiry = expiry
+        self.amount_sat = amount_sat
+
+    def mark_quote_issued(self):
+        """
+        Store the quote_id in the datastore to prevent issuing tokens for the same quote
+        """
+
+        key = ISSUED_TOKEN_KEY_BASE.copy()
+        key.append(self.quote_id)
+        plugin.rpc.datastore(key=key, string="")
+
+    def was_issued(self):
+        """ Check if the quote exists in the datastore """
+        key = ISSUED_TOKEN_KEY_BASE.copy()
+        key.append(self.quote_id)
+        return plugin.rpc.listdatastore(key=key)["datastore"] != []
 
 
 class BlindedSignature():
