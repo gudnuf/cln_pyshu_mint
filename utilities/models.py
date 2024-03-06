@@ -224,6 +224,36 @@ class MeltQuote():
         self.request = request
         self.expiry = expiry
 
+    @staticmethod
+    def from_db_string(db_string: str):
+        try:
+            data = json.loads(db_string)
+            return MeltQuote(
+                quote_id=data["quote"],
+                amount_sat=data["amount"],
+                fee_reserve=data["fee_reserve"],
+                paid=data["paid"],
+                request=data["request"],
+                expiry=data["expiry"]
+            )
+        except Exception:
+            raise ValueError("Failed to parse quote from db string")
+
+    @staticmethod
+    def find(quote_id: str):
+        """ Look for a melt quote in the datastore """
+
+        key = MELT_QUOTE_KEY_BASE.copy()
+        key.append(quote_id)
+
+        data = plugin.rpc.listdatastore(key=key)["datastore"]
+        assert len(data) != 0, "Quote not found"
+
+        quote = MeltQuote.from_db_string(data[0].get("string", None))
+        assert quote, "Quote not found"
+
+        return quote
+
     def to_json(self):
         return {
             "quote": self.quote_id,
@@ -234,12 +264,18 @@ class MeltQuote():
             "expiry": self.expiry
         }
 
-    def save(self):
+    def save(self, mode="must-create"):
         """ Store the quote data in the datastore """
 
         key = MELT_QUOTE_KEY_BASE.copy()
         key.append(self.quote_id)
-        plugin.rpc.datastore(key=key, string=json.dumps(self.to_json()))
+        plugin.rpc.datastore(
+            key=key, string=json.dumps(self.to_json()), mode=mode)
+
+    def update(self):
+        """ Update the quote in the datastore """
+
+        self.save(mode="must-replace")
 
 
 class BlindedSignature():

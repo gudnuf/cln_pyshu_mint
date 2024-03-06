@@ -9,7 +9,8 @@ from utilities.models import (
     PostMintResponse,
     PostQuoteMeltResponse,
     PostMeltResponse,
-    PostSwapResponse
+    PostSwapResponse,
+    MeltQuote
 )
 from utilities.utils import (create_blinded_sigs,
                              tokens_issued,
@@ -132,24 +133,27 @@ def get_melt_quote(plugin: Plugin, req: str, unit: str):
 def check_melt_quote(plugin: Plugin, quote: str):
     """Checks the status of a melt quote request"""
 
-    stored_quote = plugin.melt_quotes.get(quote)
-    if not stored_quote:
-        return {"error": "quote not found"}
+    melt_quote: MeltQuote = MeltQuote.find(quote_id=quote)
 
+    paid = False
     # if paid, then payment will be in the list of pays otherwise assume not paid
     try:
         payment = plugin.rpc.listpays(
-            bolt11=stored_quote["request"]).get("pays")[0]
+            bolt11=melt_quote.request).get("pays")[0]
+
         paid = True if payment.get("status") == "complete" else False
-    except:
+    except IndexError:
         paid = False
 
-    # TODO: how to do this better? don't write 3 lines of `without_request`
-    without_request = stored_quote.copy()
-    without_request.pop("request")
-    without_request["paid"] = paid
+    melt_quote.paid = paid
+    melt_quote.update()
+
     return PostQuoteMeltResponse(quote=quote,
-                                 amount=without_request["amount"], fee_reserve=without_request["fee_reserve"], paid=without_request["paid"], expiry=without_request.get("expiry"))
+                                 amount=melt_quote.amount_sat,
+                                 fee_reserve=melt_quote.fee_reserve,
+                                 paid=melt_quote.paid,
+                                 expiry=melt_quote.expiry
+                                 )
 
 
 @plugin.method("cashu-melt")
