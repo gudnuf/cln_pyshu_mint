@@ -23,12 +23,22 @@ def random_hash() -> str:
     ).decode()
 
 
+DOMAIN_SEPARATOR = b"Secp256k1_HashToCurve_Cashu_"
+
+
 def hash_to_curve(x_bytes):
-    # Hash the secret using SHA-256
-    hash_value = sha256(x_bytes).digest()
-    # Create a public key Y from the hashed secret
-    Y = PublicKey.from_secret(hash_value)
-    return Y
+    msg_to_hash = sha256(DOMAIN_SEPARATOR + x_bytes).digest()
+    counter = 0
+    while counter < 2**16:
+        _hash = sha256(msg_to_hash + counter.to_bytes(4, "little")).digest()
+        try:
+            # will error if point does not lie on curve
+            return PublicKey(b"\x02" + _hash)
+        except Exception:
+            counter += 1
+    # it should never reach this point
+    raise ValueError("No valid point found")
+
 
 def verify_token(C, secret_bytes, k: PrivateKey):
     # k*hash_to_curve(x) == C
