@@ -7,7 +7,8 @@ from hashlib import sha256
 from coincurve import PublicKey, PrivateKey
 from .rpc_plugin import plugin
 from .crypto import random_hash, blind_sign, verify_token
-from .utils import ISSUED_TOKEN_KEY_BASE, MELT_QUOTE_KEY_BASE, token_spent, mark_token_spent
+from .utils import ISSUED_TOKEN_KEY_BASE, MELT_QUOTE_KEY_BASE, token_spent, mark_token_spent, sum_outputs, sum_inputs
+from . import crud
 
 
 class MeltQuote():
@@ -88,6 +89,13 @@ class MeltQuote():
     #         return False
 
 
+class BlindedMessage:
+    def __init__(self, amount: int, B_: str, id: str):
+        self.amount = amount
+        self.B_ = B_
+        self.id = id
+
+
 class Keyset:
     id: str
     private_keys: Dict[int, PrivateKey]
@@ -133,6 +141,13 @@ class Keyset:
         sorted_keys = dict(sorted(self.public_keys.items()))
         pubkeys_concat = b"".join([p.format() for p in sorted_keys.values()])
         return "00" + sha256(pubkeys_concat).hexdigest()[:14]
+
+
+class Proof:
+    def __init__(self, amount: int, C: str, secret: str):
+        self.amount = amount
+        self.C = C
+        self.secret = secret
 
 
 class Mint:
@@ -287,6 +302,23 @@ class Mint:
             return True, payment.get('payment_preimage')
         else:
             return False, None
+
+    def swap_tokens(self, inputs: List[Proof], outputs: List[BlindedMessage]):
+        inputs_sat = sum_inputs(inputs)
+        outputs_sat = sum_outputs(outputs)
+
+        assert inputs_sat == outputs_sat, "input amount does not match output amount"
+        self._validate_inputs(inputs)
+
+        # TODO: set tokens pending
+
+        blinded_sigs = self._generate_promises(outputs)
+
+        [crud.mark_token_spent(i["secret"]) for i in inputs]
+
+        # set tokens unpending
+
+        return blinded_sigs
 
 
 class Invoice():

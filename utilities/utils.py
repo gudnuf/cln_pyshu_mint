@@ -116,3 +116,11 @@ def generate_invoice(plugin: Plugin, amount_msat, quote):
         raise ValueError("failed to generate invoice")
     else:
         return invoice.get("bolt11"), invoice.get("expires_at")
+
+
+def sum_inputs(inputs):
+    return sum([int(proof["amount"]) for proof in inputs])
+
+
+def sum_outputs(outputs):
+    return sum([int(b_["amount"]) for b_ in outputs])

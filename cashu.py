@@ -171,20 +171,7 @@ def melt_token(plugin: Plugin, quote: str, inputs: list, outputs: list):
 def swap(plugin, inputs, outputs):
     """swap tokens for other tokens"""
 
-    inputs_sat = sum([int(proof["amount"]) for proof in inputs])
-    outputs_sat = sum([int(b_["amount"]) for b_ in outputs])
-
-    if inputs_sat is not outputs_sat:
-        return {"error": "input amount does not match output amount"}
-
-    # validate the inputs and return an error message if present
-    if (result := validate_inputs(plugin, inputs)) is not None:
-        return result
-
-    blinded_sigs = create_blinded_sigs(plugin, outputs)
-
-    # store the secrets for each token so we know they've been spent
-    [mark_token_spent(plugin, i["secret"]) for i in inputs]
+    blinded_sigs = mint.swap_tokens(inputs, outputs)
 
     return PostSwapResponse(sigs=blinded_sigs)
 
