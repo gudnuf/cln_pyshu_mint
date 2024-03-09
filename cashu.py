@@ -157,33 +157,14 @@ def check_melt_quote(plugin: Plugin, quote: str):
 
 
 @plugin.method("cashu-melt")
-def melt_token(plugin: Plugin, quote: str, inputs: list):
+def melt_token(plugin: Plugin, quote: str, inputs: list, outputs: list):
     """melt tokens"""
 
-    quote = plugin.melt_quotes.get(quote)
-    if not quote:
-        return {"error": "quote not found"}
+    quote = MeltQuote.find(quote_id=quote)
 
-    bolt11 = quote["request"]
+    paid, preimage = mint.melt_tokens(quote, inputs, outputs)
 
-    # sum of all input amounts must equal the quote amount
-    requested_amount = sum([int(i["amount"]) for i in inputs])
-    quote_amount = int(quote["amount"])
-    if requested_amount != quote_amount:
-        return {"error": "invalid amount"}
-
-    # validate the inputs and return an error message if present
-    if (result := validate_inputs(plugin, inputs)) is not None:
-        return result
-
-    payment = plugin.rpc.pay(bolt11)
-
-    if payment.get('status') == 'complete':
-        [mark_token_spent(plugin, i["secret"]) for i in inputs]
-
-        return PostMeltResponse(paid=True, preimage=payment.get('payment_preimage'))
-    else:
-        return PostMeltResponse(paid=False)
+    return PostMeltResponse(paid=paid, preimage=preimage)
 
 
 @plugin.method("cashu-swap")

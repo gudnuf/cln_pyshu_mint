@@ -2,12 +2,90 @@ import time
 import json
 import math
 from pyln.client import Millisatoshi
-from typing import List, Dict
+from typing import List, Dict, Union
 from hashlib import sha256
 from coincurve import PublicKey, PrivateKey
 from .rpc_plugin import plugin
-from .crypto import random_hash, blind_sign
-from .utils import ISSUED_TOKEN_KEY_BASE, MELT_QUOTE_KEY_BASE
+from .crypto import random_hash, blind_sign, verify_token
+from .utils import ISSUED_TOKEN_KEY_BASE, MELT_QUOTE_KEY_BASE, token_spent, mark_token_spent
+
+
+class MeltQuote():
+    def __init__(self, quote_id: str, amount_sat: str, fee_reserve: int, paid: bool, request: str, expiry: int = None):
+        self.quote_id = quote_id
+        self.amount_sat = amount_sat
+        self.fee_reserve = fee_reserve
+        self.paid = paid
+        self.request = request
+        self.expiry = expiry
+
+    @staticmethod
+    def from_db_string(db_string: str):
+        try:
+            data = json.loads(db_string)
+            return MeltQuote(
+                quote_id=data["quote"],
+                amount_sat=data["amount"],
+                fee_reserve=data["fee_reserve"],
+                paid=data["paid"],
+                request=data["request"],
+                expiry=data["expiry"]
+            )
+        except Exception:
+            raise ValueError("Failed to parse quote from db string")
+
+    @staticmethod
+    def find(quote_id: str):
+        """
+          Look for a melt quote in the datastore 
+
+            Raises:
+                AssertionError: Quote not found  
+        """
+
+        key = MELT_QUOTE_KEY_BASE.copy()
+        key.append(quote_id)
+
+        data = plugin.rpc.listdatastore(key=key)["datastore"]
+        assert len(data) != 0, "Quote not found"
+
+        quote = MeltQuote.from_db_string(data[0].get("string", None))
+        assert quote, "Quote not found"
+
+        return quote
+
+    def to_json(self):
+        return {
+            "quote": self.quote_id,
+            "amount": self.amount_sat,
+            "fee_reserve": self.fee_reserve,
+            "paid": self.paid,
+            "request": self.request,
+            "expiry": self.expiry
+        }
+
+    def save(self, mode="must-create"):
+        """ Store the quote data in the datastore """
+
+        key = MELT_QUOTE_KEY_BASE.copy()
+        key.append(self.quote_id)
+        plugin.rpc.datastore(
+            key=key, string=json.dumps(self.to_json()), mode=mode)
+
+    def update(self):
+        """ Update the quote in the datastore """
+
+        self.save(mode="must-replace")
+
+    # def isPaid(self):
+    #     """ Lookup payment by bolt11 and check if it's paid """
+    #     try:
+    #         payment = plugin.rpc.listpays(
+    #             bolt11=self.request).get("pays")[0]
+
+    #         return True if payment.get("status") == "complete" else False
+    #     except IndexError:
+    #         return False
 
 
 class Keyset:
@@ -78,6 +156,16 @@ class Mint:
             promises.append(self._generate_promise(output))
 
         return promises
+
+    def _validate_inputs(self, inputs: List[Dict[str, str]]):
+        for i in inputs:
+            k = self.keyset.private_keys[i["amount"]]
+            C = i["C"]
+            secret_bytes = i["secret"].encode('utf-8')
+            assert verify_token(
+                C, secret_bytes, k), "invalid signature on an input"
+            assert not token_spent(plugin,
+                                   secret=i["secret"]), f'token with secret {i["secret"]} already spent'
 
     def generate_invoice(self, amount_msat: int, quote_id: str):
         invoice = plugin.rpc.invoice(
@@ -153,13 +241,13 @@ class Mint:
 
     def melt_quote(self, bolt11: str):
         # TODO: look to see if a quote already exists for this bolt11
-        
+
         amount_msat = Millisatoshi(
             plugin.rpc.decodepay(bolt11).get("amount_msat"))
         amount_sat = math.floor(amount_msat.to_satoshi())
         quote_id = random_hash()
-        fee_reserve = 0
-        expiry = None
+        fee_reserve = 0  # TODO: calculate fee reserve
+        expiry = None  # TODO: parse invoice expiry
 
         return MeltQuote(
             quote_id=quote_id,
@@ -169,6 +257,36 @@ class Mint:
             expiry=expiry,
             request=bolt11
         )
+
+    def melt_tokens(self, quote: MeltQuote, inputs: List[Dict[str, str]], outputs: List[Dict[str, str]]):
+        inputs_amount_sum = sum([int(i["amount"]) for i in inputs])
+
+        plugin.log(f"requested_amount: {inputs_amount_sum}")
+        plugin.log(f"quote.amount_sat: {quote.amount_sat}")
+
+        assert inputs_amount_sum >= quote.amount_sat + \
+            quote.fee_reserve, "not enough inputs to pay"
+        assert not quote.paid, "Quote already paid"
+        if quote.expiry:
+            assert quote.expiry > int(time.time()), "Quote expired"
+
+        self._validate_inputs(inputs)
+
+        # TODO: set proofs to pending to avoide race conditions
+
+        payment = plugin.rpc.pay(quote.request)
+
+        if payment.get('status') == 'complete':
+            [mark_token_spent(plugin, secret=i["secret"]) for i in inputs]
+
+            # change_amount = inputs_amount_sum - payment.get('amount_sent_msat', quote.amount_sat)
+
+            # change = []
+            # if change_amount > 0:
+
+            return True, payment.get('payment_preimage')
+        else:
+            return False, None
 
 
 class Invoice():
@@ -213,69 +331,6 @@ class MintQuote():
         key = ISSUED_TOKEN_KEY_BASE.copy()
         key.append(self.quote_id)
         return plugin.rpc.listdatastore(key=key)["datastore"] != []
-
-
-class MeltQuote():
-    def __init__(self, quote_id: str, amount_sat: str, fee_reserve: int, paid: bool, request: str, expiry: int = None):
-        self.quote_id = quote_id
-        self.amount_sat = amount_sat
-        self.fee_reserve = fee_reserve
-        self.paid = paid
-        self.request = request
-        self.expiry = expiry
-
-    @staticmethod
-    def from_db_string(db_string: str):
-        try:
-            data = json.loads(db_string)
-            return MeltQuote(
-                quote_id=data["quote"],
-                amount_sat=data["amount"],
-                fee_reserve=data["fee_reserve"],
-                paid=data["paid"],
-                request=data["request"],
-                expiry=data["expiry"]
-            )
-        except Exception:
-            raise ValueError("Failed to parse quote from db string")
-
-    @staticmethod
-    def find(quote_id: str):
-        """ Look for a melt quote in the datastore """
-
-        key = MELT_QUOTE_KEY_BASE.copy()
-        key.append(quote_id)
-
-        data = plugin.rpc.listdatastore(key=key)["datastore"]
-        assert len(data) != 0, "Quote not found"
-
-        quote = MeltQuote.from_db_string(data[0].get("string", None))
-        assert quote, "Quote not found"
-
-        return quote
-
-    def to_json(self):
-        return {
-            "quote": self.quote_id,
-            "amount": self.amount_sat,
-            "fee_reserve": self.fee_reserve,
-            "paid": self.paid,
-            "request": self.request,
-            "expiry": self.expiry
-        }
-
-    def save(self, mode="must-create"):
-        """ Store the quote data in the datastore """
-
-        key = MELT_QUOTE_KEY_BASE.copy()
-        key.append(self.quote_id)
-        plugin.rpc.datastore(
-            key=key, string=json.dumps(self.to_json()), mode=mode)
-
-    def update(self):
-        """ Update the quote in the datastore """
-
-        self.save(mode="must-replace")
 
 
 class BlindedSignature():
@@ -429,14 +484,16 @@ class PostMeltResponse():
     https://github.com/cashubtc/nuts/blob/main/05.md#melting-tokens
     """
 
-    def __init__(self, paid: bool, preimage: str = None):
+    def __init__(self, paid: bool, preimage: str = None, change: Union[List[BlindedSignature], None] = None):
         self.paid = paid
         self.preimage = preimage
+        self.change = change
 
     def to_json(self):
         return {
             "paid": self.paid,
-            "preimage": self.preimage
+            "payment_preimage": self.preimage,
+            "change": self.change and [c for c in self.change]
         }
 
 
