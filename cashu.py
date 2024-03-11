@@ -135,16 +135,7 @@ def check_melt_quote(plugin: Plugin, quote: str):
 
     melt_quote: MeltQuote = MeltQuote.find(quote_id=quote)
 
-    paid = False
-    # if paid, then payment will be in the list of pays otherwise assume not paid
-    try:
-        payment = plugin.rpc.listpays(
-            bolt11=melt_quote.request).get("pays")[0]
-
-        paid = True if payment.get("status") == "complete" else False
-    except IndexError:
-        paid = False
-
+    paid = melt_quote.is_paid()
     melt_quote.paid = paid
     melt_quote.update()
 

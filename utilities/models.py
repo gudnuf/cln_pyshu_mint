@@ -78,15 +78,15 @@ class MeltQuote():
 
         self.save(mode="must-replace")
 
-    # def isPaid(self):
-    #     """ Lookup payment by bolt11 and check if it's paid """
-    #     try:
-    #         payment = plugin.rpc.listpays(
-    #             bolt11=self.request).get("pays")[0]
+    def is_paid(self):
+        """ Lookup payment by bolt11 and check if it's paid """
+        try:
+            payment = plugin.rpc.listpays(
+                bolt11=self.request).get("pays")[0]
 
-    #         return True if payment.get("status") == "complete" else False
-    #     except IndexError:
-    #         return False
+            return True if payment.get("status") == "complete" else False
+        except IndexError:
+            return False
 
 
 class BlindedMessage:
