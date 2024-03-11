@@ -167,4 +167,65 @@ def swap(plugin, inputs, outputs):
     return PostSwapResponse(sigs=blinded_sigs)
 
 
+@plugin.method("cashu-route-map")
+def route_map(plugin):
+    route_map = [
+        {
+            "path": "/keys",
+            "cmd": "cashu-get-keys",
+            "method": "GET"
+        },
+        {
+            "path": "/keysets",
+            "cmd": "cashu-get-keysets",
+            "method": "GET"
+        },
+        {
+            "path": "/keys/<keyset_id>",
+            "cmd": "cashu-get-keys",
+            "method": "GET"
+        },
+        {
+            "path": "/mint/quote/bolt11",
+            "cmd": "cashu-quote-mint",
+            "method": "POST"
+        },
+        {
+            "path": "/mint/quote/bolt11/<quote_id>",
+            "cmd": "cashu-check-mint",
+            "method": "GET"
+        },
+        {
+            "path": "/mint/bolt11",
+            "cmd": "cashu-mint",
+            "method": "POST"
+        },
+        {
+            "path": "/melt/quote/bolt11",
+            "cmd": "cashu-quote-melt",
+            "method": "POST",
+            "param_overrides": {
+                "request": "req"
+            }
+        },
+        {
+            "path": "/melt/quote/bolt11/<quote_id>",
+            "cmd": "cashu-check-melt",
+            "method": "GET"
+        },
+        {
+            "path": "/melt/bolt11",
+            "cmd": "cashu-melt",
+            "method": "POST"
+        },
+        {
+            "path": "/swap",
+            "cmd": "cashu-swap",
+            "method": "POST"
+        }
+    ]
+
+    return route_map
+
+
 plugin.run()
