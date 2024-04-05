@@ -3,4 +3,4 @@
 .lightning_nodes/
 .bitcoin/
 .direnv
-plugin/__pycache__
+utilities/__pycache__
