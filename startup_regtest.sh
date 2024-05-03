@@ -127,6 +127,7 @@ funder-lease-requests-only=false
 lease-fee-base-sat=2sat
 lease-fee-basis=50
 invoices-onchain-fallback
+disable-plugin=clnrest.py
 		EOF
 
         # Make sure the log file exists?
