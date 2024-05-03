@@ -254,12 +254,23 @@ class Mint:
 
         return promises
 
-    def melt_quote(self, bolt11: str):
+    def melt_quote(self, bolt11: str, amount: int = None):
+        if bolt11.startswith("lno"):
+            plugin.log("This is an offer")
+            if not amount:
+                raise ValueError("Amount is required for offers")
+            amount_sat = amount
+            fetch_invoice_response = plugin.rpc.fetchinvoice(offer=bolt11, amount_msat=amount * 1000)
+            request = fetch_invoice_response.get("invoice")
+        else:
+            plugin.log("This is an invoice")
+            amount_msat = Millisatoshi(
+                plugin.rpc.decodepay(bolt11).get("amount_msat")).to_satoshi()
+            amount_sat = math.floor(amount_msat)
+            request = bolt11
+
         # TODO: look to see if a quote already exists for this bolt11
 
-        amount_msat = Millisatoshi(
-            plugin.rpc.decodepay(bolt11).get("amount_msat"))
-        amount_sat = math.floor(amount_msat.to_satoshi())
         quote_id = random_hash()
         fee_reserve = 0  # TODO: calculate fee reserve
         expiry = None  # TODO: parse invoice expiry
@@ -270,7 +281,7 @@ class Mint:
             fee_reserve=fee_reserve,
             paid=False,
             expiry=expiry,
-            request=bolt11
+            request=request
         )
 
     def melt_tokens(self, quote: MeltQuote, inputs: List[Dict[str, str]], outputs: List[Dict[str, str]]):

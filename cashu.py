@@ -114,9 +114,9 @@ def mint_token(plugin: Plugin, quote: str, outputs):
 
 
 @plugin.method("cashu-quote-melt")
-def get_melt_quote(plugin: Plugin, req: str, unit: str):
+def get_melt_quote(plugin: Plugin, req: str, unit = 'sat', amount: int = None):
     """Returns a quote for melting tokens"""
-    melt_quote = mint.melt_quote(bolt11=req)
+    melt_quote = mint.melt_quote(bolt11=req, amount=amount)
 
     melt_quote.save()
 
