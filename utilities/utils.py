@@ -1,5 +1,4 @@
 from pyln.client import Plugin
-from .models import Keyset
 from . import crypto
 
 # question: is there a way to make these functions work so that we do not have to pass the plugin to all of them??
@@ -90,7 +89,7 @@ def find_invoice(plugin: Plugin, quote_id: str):
         return bolt11, paid, expires_at, amount_msat
 
 
-def create_blinded_sigs(keyset: Keyset, blinded_messages):
+def create_blinded_sigs(keyset, blinded_messages):
     """sign all the blinded messages"""
     blinded_sigs = []
     for b in blinded_messages:
