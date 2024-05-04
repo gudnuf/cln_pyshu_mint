@@ -95,6 +95,7 @@
               bitstring
               pysocks
               cryptography
+              websockets
               coincurve
               flask
               gunicorn

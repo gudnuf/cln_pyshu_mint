@@ -1,4 +1,4 @@
-#!/nix/store/5k91mg4qjylxbfvrv748smfh51ppjq0g-python3-3.11.6/bin/python
+#!/nix/store/lpi16513bai8kg2bd841745vzk72475x-python3-3.11.9/bin/python
 
 from pyln.client import Plugin
 from utilities.models import (
